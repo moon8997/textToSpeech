@@ -56,7 +56,7 @@ def fetch_data():
                 gates.append(gate)
 
             query = """
-            select pushback_seq, gate, pushback, text
+            select pushback_seq, gate, UPPER(pushback) as pushback, UPPER(text) as text
             from ast_pushback
             """
             cursor.execute(query)
