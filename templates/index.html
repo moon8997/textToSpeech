@@ -80,10 +80,14 @@
                 <label for="input_text">텍스트 입력:</label>
                 <textarea id="input_text" name="INPUT_TEXT" rows="4" cols="50"></textarea><br><br>
                 <label for="type">음성 유형 선택:</label>
-                <select id="type" name="TYPE">
+                <select id="type" name="TYPE" onchange="setRate()">
                     <option value="0">여성</option>
                     <option value="1">남성</option>
-                </select><br><br>
+                </select>
+                <br><br>
+                <label for="input_rate">Rate:</label>
+                <input type="text" id="input_rate" name="INPUT_RATE" value="48100"/>
+                <br><br>
                 <input type="submit" value="음성으로 변환">
             </form>
             <h2>생성된 음성</h2>
@@ -101,6 +105,8 @@
             </form>
             <h2>변환된 텍스트</h2>
             <div id="transcriptionResult"></div>
+            <div id="callsign"></div>
+            <div id="act"></div>
         </div>
     </div>
 
@@ -121,6 +127,24 @@
                 audioPlayer.style.display = 'block';
                 audioPlayer.load();
                 audioPlayer.play();
+
+                // Automatically send the generated audio to the transcription form
+                const transcriptionFormData = new FormData();
+                transcriptionFormData.append('wav', blob, 'generated_audio.wav');
+                fetch('/generate_txt', {
+                    method: 'POST',
+                    body: transcriptionFormData
+                })
+                .then(response => response.json())
+                .then(data  => {
+                    console.log(data)
+                    const transcriptionResult = document.getElementById('transcriptionResult');
+                    transcriptionResult.textContent = data.converted_text;
+                    document.getElementById('callsign').textContent = data.callsign;
+                    document.getElementById('act').textContent = data.act;
+                })
+                .catch(error => console.error('Error:', error));
+
             })
             .catch(error => console.error('Error:', error));
         });
@@ -132,13 +156,28 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.text())
-            .then(text => {
-                const transcriptionResult = document.getElementById('transcriptionResult');
-                transcriptionResult.textContent = text;
-            })
-            .catch(error => console.error('Error:', error));
+            .then(response => response.json())
+                .then(data  => {
+                    console.log(data)
+                    const transcriptionResult = document.getElementById('transcriptionResult');
+                    transcriptionResult.textContent = data.converted_text;
+                    document.getElementById('callsign').textContent = data.callsign;
+                    document.getElementById('act').textContent = data.act;
+                })
+                .catch(error => console.error('Error:', error));
         });
+
+        function setRate() {
+            var typeSelect = document.getElementById("type");
+            var rateInput = document.getElementById("input_rate");
+
+            if (typeSelect.value == "0") {
+                rateInput.value = "48100";
+            } else if (typeSelect.value == "1") {
+                rateInput.value = "15500";
+            }
+        }
+
     </script>
 </body>
 </html>

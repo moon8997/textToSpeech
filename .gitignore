@@ -1,0 +1,24 @@
+model/female/config.json
+model/female/model.pth
+model/male/config.json
+model/male/model_file.pth
+model/male/model_se.pth
+model/male/speakers.json
+voice/chim.wav
+voice - 복사본/Audio.wav
+voice - 복사본/chim.wav
+voice - 복사본/man2.mp3
+voice - 복사본/man3.mp3
+voice - 복사본/man4.mp3
+voice - 복사본/man5.mp3
+voice - 복사본/output.wav
+voice - 복사본/youtube.wav
+voice - 복사본/youtube2.wav
+voice - 복사본/youtube3.wav
+module/__pycache__/dict.cpython-310.pyc
+module/__pycache__/mysql.cpython-310.pyc
+module/__pycache__/tts.cpython-310.pyc
+module/__pycache__/util.cpython-310.pyc
+__pycache__/dict.cpython-310.pyc
+__pycache__/WebServer59125.cpython-310.pyc
+config.ini
