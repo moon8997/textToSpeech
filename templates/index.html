@@ -167,6 +167,7 @@
             })
             .then(response => response.json())
                 .then(data  => {
+                    console.log(data);
                     const transcriptionResult = document.getElementById('transcriptionResult');
                     transcriptionResult.textContent = data.converted_text;
                     document.getElementById('callsign').textContent = data.callsign;
