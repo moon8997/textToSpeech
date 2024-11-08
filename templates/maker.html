@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio and Transcript Uploader</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Upload Audio and Transcript</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="messages">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <form action="/" method="post" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col-sm-6">
+                    <label for="audio">Select Audio File:</label>
+                    <input type="file" name="audio" id="audio" accept="audio/*" required>
+                </div>
+                <div class="col-sm-6">
+                    <label for="transcript">Enter Transcript:</label>
+                    <textarea name="transcript" id="transcript" rows="5" required></textarea>
+                </div>
+            </div>
+            <input type="submit" value="Upload">
+        </form>
+
+        {% if filename %}
+        <h2>Uploaded Audio:</h2>
+        <audio controls>
+            <source src="{{ url_for('uploaded_file', filename=filename) }}" type="audio/wav">
+            Your browser does not support the audio element.
+        </audio>
+        {% endif %}
+    </div>
+</body>
+</html>

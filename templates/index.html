@@ -9,18 +9,17 @@
             font-family: Arial, sans-serif;
             background-color: #f4f4f9;
             margin: 0;
-            padding: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
         }
         h1, h2 {
             color: #333;
         }
         .container {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-around;
             width: 100%;
             max-width: 1200px;
@@ -29,10 +28,10 @@
         .section {
             background-color: #fff;
             padding: 20px;
-            margin: 20px;
+            margin: 10px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 45%;
+            width: calc(50% - 40px);
             box-sizing: border-box;
         }
         label, textarea, select, input, audio {
@@ -53,6 +52,7 @@
             font-size: 16px;
             cursor: pointer;
             border-radius: 4px;
+            transition: background-color 0.3s;
         }
         input[type="submit"]:hover {
             background-color: #45a049;
@@ -60,34 +60,37 @@
         audio {
             margin-top: 20px;
         }
-        #transcriptionResult {
+        #transcriptionResult, #callsign, #act {
             white-space: pre-wrap;
             background-color: #e9e9e9;
             padding: 10px;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            box-sizing: border-box;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .section {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- <h1>음성 변환 및 텍스트 변환</h1> -->
     <div class="container">
         <div class="section">
             <h2>음성 변환기</h2>
             <form id="ttsForm">
+                <label for="callsign">콜사인:</label>
+                <input name="CALLSIGN" required>
                 <label for="input_text">텍스트 입력:</label>
-                <textarea id="input_text" name="INPUT_TEXT" rows="4" cols="50"></textarea><br><br>
+                <textarea id="input_text" name="INPUT_TEXT" rows="4" required></textarea>
                 <label for="type">음성 유형 선택:</label>
-                <select id="type" name="TYPE" onchange="setRate()">
+                <select id="type" name="TYPE">
                     <option value="0">여성</option>
                     <option value="1">남성</option>
+                    <option value="2">ㅇㅇ</option>
                 </select>
-                <br><br>
                 <label for="input_rate">Rate:</label>
-                <input type="text" id="input_rate" name="INPUT_RATE" value="48100"/>
-                <br><br>
+                <input type="number" id="input_rate" name="INPUT_RATE" value="48100" required>
                 <input type="submit" value="음성으로 변환">
             </form>
             <h2>생성된 음성</h2>
@@ -100,93 +103,100 @@
             <h2>음성 텍스트 변환기</h2>
             <form id="transcriptionForm">
                 <label for="audioFile">오디오 파일 업로드:</label>
-                <input type="file" id="audioFile" name="wav" accept="audio/*"><br><br>
+                <input type="file" id="audioFile" name="wav" accept="audio/*" required>
                 <input type="submit" value="텍스트로 변환">
             </form>
             <h2>변환된 텍스트</h2>
             <div id="transcriptionResult"></div>
             <div id="callsign"></div>
             <div id="act"></div>
+            <div id="b_approved"></div>
+            <div id="rwy"></div>
+            <div id="gate"></div>
         </div>
     </div>
 
     <script>
-        document.getElementById('ttsForm').addEventListener('submit', function(event) {
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioSource = document.getElementById('audioSource');
+        const transcriptionResult = document.getElementById('transcriptionResult');
+        const callsignElement = document.getElementById('callsign');
+        const actElement = document.getElementById('act');
+        const approvedElement = document.getElementById('b_approved');
+        const rwyElement = document.getElementById('rwy');
+        const gateElement = document.getElementById('gate');
+
+        async function handleResponse(response) {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        }
+
+        async function updateTranscriptionResult(data) {
+            console.log(data);
+            transcriptionResult.textContent = data.converted_text;
+            callsignElement.textContent = `Callsign: ${data.callsign}`;
+            actElement.textContent = `Act: ${data.acts}`;
+            approvedElement.textContent = `Approved: ${data.b_approved}`;
+            rwyElement.textContent = `rwy: ${data.rwy}`;
+            gateElement.textContent = `gate: ${data.gate}`;
+
+            if (data.url) {
+                audioSource.src = data.url;
+                audioPlayer.style.display = 'block';
+                audioPlayer.load();
+                audioPlayer.play();
+            }
+        }
+
+        document.getElementById('ttsForm').addEventListener('submit', async function(event) {
             event.preventDefault();
-            const formData = new FormData(this);
-            fetch('/process', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.blob())
-            .then(blob => {
-                const audioPlayer = document.getElementById('audioPlayer');
-                const audioSource = document.getElementById('audioSource');
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: new FormData(this)
+                });
+                const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 audioSource.src = url;
                 audioPlayer.style.display = 'block';
                 audioPlayer.load();
                 audioPlayer.play();
 
-                // Automatically send the generated audio to the transcription form
                 const transcriptionFormData = new FormData();
                 transcriptionFormData.append('wav', blob, 'generated_audio.wav');
-                fetch('/generate_txt', {
+                const transcriptionResponse = await fetch('/generate_txt', {
                     method: 'POST',
                     body: transcriptionFormData
-                })
-                .then(response => response.json())
-                .then(data  => {
-                    console.log(data)
-                    const transcriptionResult = document.getElementById('transcriptionResult');
-                    transcriptionResult.textContent = data.converted_text;
-                    document.getElementById('callsign').textContent = data.callsign;
-                    document.getElementById('act').textContent = data.act;
-
-                    if(data.url != ''){
-                        const audioPlayer = document.getElementById('audioPlayer');
-                        const audioSource = document.getElementById('audioSource');
-                        audioSource.src = data.url;
-                        audioPlayer.style.display = 'block';
-                        audioPlayer.load();
-                        audioPlayer.play();
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-
-            })
-            .catch(error => console.error('Error:', error));
-        });
-
-        document.getElementById('transcriptionForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-            fetch('/generate_txt', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-                .then(data  => {
-                    console.log(data);
-                    const transcriptionResult = document.getElementById('transcriptionResult');
-                    transcriptionResult.textContent = data.converted_text;
-                    document.getElementById('callsign').textContent = data.callsign;
-                    document.getElementById('act').textContent = data.act;
-                })
-                .catch(error => console.error('Error:', error));
-        });
-
-        function setRate() {
-            var typeSelect = document.getElementById("type");
-            var rateInput = document.getElementById("input_rate");
-
-            if (typeSelect.value == "0") {
-                rateInput.value = "48100";
-            } else if (typeSelect.value == "1") {
-                rateInput.value = "15500";
+                });
+                const data = await handleResponse(transcriptionResponse);
+                await updateTranscriptionResult(data);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
             }
-        }
+        });
 
+        document.getElementById('transcriptionForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            try {
+                const response = await fetch('/generate_txt', {
+                    method: 'POST',
+                    body: new FormData(this)
+                });
+                const data = await handleResponse(response);
+                await updateTranscriptionResult(data);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            }
+        });
+
+        document.getElementById('type').addEventListener('change', function() {
+            const rateInput = document.getElementById('input_rate');
+            rateInput.value = this.value === '0' ? '48100' : this.value === '1' ? '16000' : '22050';
+        });
     </script>
 </body>
 </html>

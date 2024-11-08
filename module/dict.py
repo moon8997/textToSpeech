@@ -15,7 +15,7 @@ airline = {
     'EVA': 'EVA', 'EZD': 'AIR ASIA ZEST', 'FDX': 'FEDEX', 'FIN': 'FIN AIR',
     'FEA': 'FAR EASTERN', 'GEC': 'LUFTHANSA', 'GIA': 'INDONESIA', 'GSC': 'GRANDSTAR',
     'GTI': 'GIANT', 'GWL': 'GREAT WALL', 'GKK': 'JETSTAR', 'HVN': 'VIETNAM',
-    'IRA': 'IRAN AIR', 'JAE': 'JADE CARGO', 'JAL': 'JAPAN AIR', 'JJA': 'JEJU',
+    'IRA': 'IRAN AIR', 'JAE': 'JADE CARGO', 'JAL': 'JAPAN AIR', 'JJA': 'JEJU AIR',
     'JNA': 'JIN AIR', 'JKT': 'JETSTRA HONGKONG', 'KAL': 'KOREAN AIR', 'KLM': 'KLM',
     'KZR': 'ASTANALINE', 'KZK': 'AIR KAZAKSTAN', 'CSA': 'CHECKO AIR', 'KOR': 'AIR KORYO',
     'MAS': 'MALAYSIA', 'MDA': 'MANDARIN', 'MEG': 'SANDBAR', 'MGL': 'MONGOL',
@@ -44,6 +44,16 @@ pronunciation = {
     '7': 'seven ', '8': 'eight ', '9': 'nine ', '0': 'zero '
 }
 
+# 숫자 발음을 일반 숫자로 매핑하는 사전
+number_map = {
+    'ONE': '1', 'TWO': '2', 'THREE': '3', 'FOUR': '4',
+    'FIVE': '5', 'SIX': '6', 'SEVEN': '7', 'EIGHT': '8',
+    'NINE': '9', 'ZERO': '0'
+}
+
 acts = {
-    "PUSHBACK", "PUSH BACK", "TAXI"
+    "PUSHBACK", "PUSH BACK", "TAXI", "LINE UP", "TAKE OFF", "ENGINE ON", "ENGINE OFF", 
+    "REQUEST", "START UP", "HOLD SHORT", "CROSS", "CLEARED TO LAND", 
+    "GO AROUND", "CONTACT", "REPORT", "CLIMB", "DESCEND", "MAINTAIN", "TURN", 
+    "SQUAWK", "STANDBY", "CONTINUE", "EXPEDITE", "CANCEL", "STAND BY", "STOP"
 }
