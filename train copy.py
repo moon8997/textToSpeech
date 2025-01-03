@@ -1,4 +1,4 @@
-from datasets import load_dataset, DatasetDict, Audio
+from datasets import load_dataset, DatasetDict, Audio, load_from_disk
 from transformers import (
     WhisperTokenizer,
     WhisperProcessor,
@@ -16,14 +16,14 @@ import evaluate
 import os
 
 # Hugging Face 캐시 경로 변경
-os.environ["HF_HOME"] = "F:/huggingface_cache"  # 모델 캐시 경로
-os.environ["HF_DATASETS_CACHE"] = "F:/huggingface_cache/datasets"  # 데이터셋 캐시 경로
+os.environ["HF_HOME"] = "D:/huggingface_cache"  # 모델 캐시 경로
+os.environ["HF_DATASETS_CACHE"] = "D:/huggingface_cache/datasets"  # 데이터셋 캐시 경로
 
 torch.cuda.memory.set_per_process_memory_fraction(0.9)
-torch.cuda.memory.max_split_size_mb = 512
+torch.cuda.memory.max_split_size_mb = 128
 
-model_id = "whisper_test/best_model"
-out_dir = 'whisper_test2'
+model_id = "openai/whisper-base"
+out_dir = 'whisper_test'
 epochs = 10
 batch_size = 2
 # 10 / 32
@@ -52,13 +52,8 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 def prepare_dataset(batch, feature_extractor, tokenizer):
     audio = batch['audio']
 
-    # Feature extraction on GPU
-    input_features = feature_extractor(audio['array'], sampling_rate=audio['sampling_rate']).input_features[0]
-    batch['input_features'] = torch.tensor(input_features).to('cuda')
-
-    # Tokenization on GPU
-    labels = tokenizer(batch['text']).input_ids
-    batch['labels'] = torch.tensor(labels).to('cuda')
+    batch['input_features'] = feature_extractor(audio['array'], sampling_rate=audio['sampling_rate']).input_features[0]
+    batch['labels'] = tokenizer(batch['text']).input_ids
 
     return batch
 
@@ -77,54 +72,50 @@ def compute_metrics(pred):
 
     return {'wer': wer}
 
+dataset_cache_dir = "D:/huggingface/datasets/parquet/default-90b83debc148a4d4/0.0.0/9d41700293b5cf3c3cee6167e8c49e37598331b6466506aecb40a8c11b6aa9f6"
+
 if __name__ == "__main__":
     # Parquet 파일에서 데이터셋 로드
-    # dataset = load_dataset("parquet", data_files={"train": "train_dataset/train.parquet", "validation": "train_dataset/validation.parquet"}, cache_dir='D:\\huggingface\\datasets')
+    dataset = load_from_disk(dataset_cache_dir)
 
     # 각 데이터셋을 별도로 추출
-    # train_dataset = dataset["train"]
-    # validation_dataset = dataset["validation"]
+    train_dataset = dataset["train"]
+    validation_dataset = dataset["validation"]
 
     # # 데이터셋 정보 출력
     # print(train_dataset)
     # print(validation_dataset)
-    print("1")
+
     # Feature Extractor, Tokenizer, Processor 로드
     feature_extractor = WhisperFeatureExtractor.from_pretrained(model_id)
     tokenizer = WhisperTokenizer.from_pretrained(model_id, language='English', task='transcribe')
     processor = WhisperProcessor.from_pretrained(model_id, language='English', task='transcribe')
 
-    print("2")
     # ATC 데이터셋 로드
-    atc_dataset_train = load_dataset('Dbdn/atcs', split='train')
-    atc_dataset_valid = load_dataset('Dbdn/atcs', split='validation')
+    # atc_dataset_train = load_dataset('Dbdn/atc-test', split='train')
+    # atc_dataset_valid = load_dataset('Dbdn/atc-test', split='validation')
 
     # print(atc_dataset_train)
     # print(atc_dataset_valid)
 
     # 오디오 데이터를 Audio 형식으로 캐스트
-    # atc_dataset_train = train_dataset.cast_column('audio', Audio(sampling_rate=16000))
-    # atc_dataset_valid = validation_dataset.cast_column('audio', Audio(sampling_rate=16000))
+    atc_dataset_train = train_dataset.cast_column('audio', Audio(sampling_rate=16000))
+    atc_dataset_valid = validation_dataset.cast_column('audio', Audio(sampling_rate=16000))
 
     # print(atc_dataset_train[0])
 
-    print("3")
     atc_dataset_train = atc_dataset_train.map(
-        lambda batch: prepare_dataset(batch, feature_extractor, tokenizer),
-        load_from_cache_file=True
+        lambda batch: prepare_dataset(batch, feature_extractor, tokenizer)
     )
     atc_dataset_valid = atc_dataset_valid.map(
-        lambda batch: prepare_dataset(batch, feature_extractor, tokenizer),
-        load_from_cache_file=True
+        lambda batch: prepare_dataset(batch, feature_extractor, tokenizer)
     )
 
-    print("4")
     model = WhisperForConditionalGeneration.from_pretrained(model_id)
 
     model.generation_config.task = 'transcribe'
     model.generation_config.forced_decoder_ids = None
 
-    print("5")
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(
         processor=processor,
         decoder_start_token_id=model.config.decoder_start_token_id,
@@ -134,11 +125,11 @@ if __name__ == "__main__":
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=out_dir, 
-        per_device_train_batch_size=4,  # 기본 배치 크기 유지
-        per_device_eval_batch_size=4,  # 동일하게 설정
-        gradient_accumulation_steps=8,  # 누적 단계 증가
-        learning_rate=5e-6,  # 학습률 조정
-        warmup_steps=1000,  # 더 긴 워밍업 단계
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=4,
+        gradient_accumulation_steps=8, 
+        learning_rate=0.00001,
+        warmup_steps=1000,
         bf16=False,
         fp16=True,
         num_train_epochs=epochs,
@@ -168,7 +159,6 @@ if __name__ == "__main__":
         tokenizer=processor.feature_extractor,
     )
 
-    print("6")
     trainer.train()
 
     model.save_pretrained(f"{out_dir}/best_model")

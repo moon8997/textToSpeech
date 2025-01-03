@@ -3,16 +3,24 @@ import io
 import numpy as np
 from scipy.io import wavfile
 import torch
+from io import BytesIO
+import soundfile as sf
+from pydub import AudioSegment
+
 # import whisper
 from dataclasses import dataclass, field
 from typing import List, Optional
 from transformers import pipeline
 import module.util as util
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-from module.tts import tts_female, tts_male, tts_male2 ,male_speaker_ids
+from module.tts import tts_male2 ,male_speaker_ids
 from module.mysql import fetch_data
 
-gates, pushBacks = fetch_data() # DB 
+import whisper
+
+# 데이터베이스에서 게이트와 푸시백 데이터를 가져옴
+gates, pushBacks = fetch_data()
 
 @dataclass
 class PushBack:
@@ -30,17 +38,15 @@ class PushBackList:
     def add_pushback(self, pushback: PushBack): 
         self.pushbacks.append(pushback)
 
-# Get device
+# Whisper 모델 로드
+processor = WhisperProcessor.from_pretrained("openai/whisper-base")
+model = WhisperForConditionalGeneration.from_pretrained("whisper_test2/best_model")
+
+whisper_model = whisper.load_model('base')
+
+# 디바이스 설정 (GPU 사용 가능 여부 확인)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-# Load Whisper model
-# whisper_model = whisper.load_model('base')
-
-pipe = pipeline(
-    model='whisper_small_atco5/best_model',
-    task='automatic-speech-recognition',
-    device='cuda'  # GPU를 사용하지 않으려면 'cpu'로 변경
-)
+model.to(device)
 
 app = Flask(__name__)
 
@@ -50,7 +56,9 @@ def index():
 
 @app.route('/process', methods=['POST'])
 def generate_speech():
-
+    """
+    텍스트를 받아 음성 파일을 생성하여 반환합니다.
+    """
     if request.data:
         text_prompt = request.data.decode("utf-8")
     elif 'INPUT_TEXT' in request.form:
@@ -68,20 +76,8 @@ def generate_speech():
     noise_level = 0.005  # 노이즈 강도 조절
     wav_with_noise = util.add_noise(wav, noise_level)
 
-    # type = request.form.get('TYPE', '0')
-    # if type == '1':
-    #     wav = tts_male.tts(text_prompt)
-    # elif type == '2':
-    #     # 무작위로 화자 ID 선택
-    #     random_speaker_id = random.choice(male_speaker_ids)
-    #     print(random_speaker_id)
-    #     # 텍스트를 음성으로 변환
-    #     wav = tts_male2.tts(text_prompt, speaker=random_speaker_id)
-    # else:
-    #     wav = tts_female.tts(text_prompt)
-    
-
-    rate = int(request.form.get('INPUT_RATE', 48500))
+    # rate = int(request.form.get('INPUT_RATE', 48500))
+    rate = 22050
 
     wav_array = np.array(wav_with_noise)
     edited_wav_int16 = (wav_array * 32767).astype(np.int16)
@@ -97,6 +93,9 @@ def generate_speech():
 wait_pushback_lists: List[PushBackList] = []
 
 def create_pushback_list(callsign: str, gate: int, pushbacks: List[PushBack]):
+    """
+    새로운 푸시백 리스트를 생성하여 대기 리스트에 추가합니다.
+    """
     new_pushback_list = PushBackList(callsign=callsign, gate=gate)
     for pb in pushbacks:
         new_pushback_list.add_pushback(pb)
@@ -104,20 +103,54 @@ def create_pushback_list(callsign: str, gate: int, pushbacks: List[PushBack]):
 
 # 푸시백 리스트에서 특정 callsign을 가진 항목 제거
 def remove_pushback_list_by_callsign(callsign: str):
+    """
+    주어진 콜사인을 가진 푸시백 리스트를 제거합니다.
+    """
     global wait_pushback_lists
     wait_pushback_lists = [pb_list for pb_list in wait_pushback_lists if pb_list.callsign != callsign]
     print("푸시백 시작")
 
 @app.route('/generate_txt', methods=['POST'])
 def generate_txt():
+    """
+    업로드된 음성 파일을 텍스트로 변환하여 반환합니다.
+    """
     try:
         wav_file = request.files['wav']
-        temp_path = "temp.wav"
-        wav_file.save(temp_path)
+        wav_bytes = wav_file.read()  # FileStorage 객체의 데이터를 바이트로 읽음
+        audio = AudioSegment.from_file(BytesIO(wav_bytes), format="wav")  # 메모리 내에서 로드
 
-        result = pipe(temp_path)['text']
+        # 오디오 파일 로드
+        # audio = AudioSegment.from_wav(temp_path)
+
+        # 16kHz로 변환
+        audio = audio.set_frame_rate(16000).set_channels(1)
+
+        # numpy 배열로 변환
+        audio_array = np.array(audio.get_array_of_samples(), dtype=np.float32) / 32768.0
+
+        # 입력 특성 추출
+        input_features = processor(audio_array, sampling_rate=16000, return_tensors="pt").input_features
+
+        # 입력 특성을 GPU로 이동
+        input_features = input_features.to(device)
+
+        # 모델 추론
+        with torch.no_grad():
+            predicted_ids = model.generate(input_features)
+
+        # 텍스트로 변환
+        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+
+        # FileStorage 객체를 읽어서 numpy 배열로 변환
+        # wav_data, sample_rate = sf.read(BytesIO(wav_file.read()))
+
+        # result = pipe(wav_data)['text']
         
-        # org_result = whisper_model.transcribe(temp_path)['text']
+        result = transcription
+
+        org_result = whisper_model.transcribe(audio_array, fp16=True)['text']
+        print(f"순정 Whisper : {org_result}")
 
         # print(result)
         # print(f"기존 Whisper : {org_result}")
@@ -129,29 +162,6 @@ def generate_txt():
 
         callsign, acts, approved, rwy, gate = util.extract_callsign_and_act(converted_text)
 
-
-        # if act.replace(' ', '') == 'PUSHBACK' and callsign:
-
-            # pushBack: Optional[PushBackList] = next((pb_list for pb_list in wait_pushback_lists if pb_list.callsign == callsign), None)
-            # if pushBack:
-            #     pushback_texts = [pushback.text for pushback in pushBack.pushbacks]
-            #     print(f"{pushBack.pushbacks[0].gate} 번 게이트의 푸시백은 {pushback_texts}.")
-            #     if any(text in original_text.replace(' ', '') for text in pushback_texts):
-            #         remove_pushback_list_by_callsign(callsign)
-            #     else:
-            #         return jsonify({
-            #             'converted_text': converted_text,
-            #             'callsign': callsign,
-            #             'act': act,
-            #             'url': url_for('static', filename='voice/invalid-pushback.mp3')
-            #         })
-            # else:
-            #     return jsonify({
-            #         'converted_text': converted_text,
-            #         'callsign': callsign,
-            #         'act': act,
-            #         'url': url_for('static', filename='voice/invalid-callsign.mp3')
-            #     })
         return jsonify({
             'converted_text': converted_text,
             'callsign': callsign,
@@ -169,10 +179,12 @@ def generate_txt():
             'b_approved':''
         })
 
-
 # 푸시백 요청 대기
 @app.route('/request_pushback', methods=['POST'])
 def request_pushback():
+    """
+    푸시백 요청을 받아 대기 리스트에 추가합니다.
+    """
     callsign = request.form.get('callsign', '0')
     gate = int(request.form.get('gate', 0))
 
@@ -189,5 +201,3 @@ if __name__ == "__main__":
     config = util.load_config('config.ini')
     server_config = config['ServerConfig']
     app.run(host='0.0.0.0', port=int(server_config['port']), threaded=True)
-
-

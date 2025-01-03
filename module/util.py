@@ -13,6 +13,16 @@ def load_config(file_path):
     return config
 
 def convert_airline_code(word):
+    """
+    항공사 코드를 변환합니다.
+
+    Args:
+        word (str): 변환할 항공사 코드와 비행기 번호
+
+    Returns:
+        str: 변환된 항공사 이름과 비행기 번호 발음
+    """
+
     if word[:3].isalpha():
         airline_code = word[:3]
         flight_number = word[3:]
@@ -25,10 +35,29 @@ def convert_airline_code(word):
     return f'{airline_name} {flight_pronunciation}'
 
 def convert_digit_to_string(word):
+    """
+    숫자를 문자열로 변환합니다.
+
+    Args:
+        word (str): 변환할 숫자 문자열
+
+    Returns:
+        str: 변환된 문자열
+    """
     return ' '.join(pronunciation.get(char, char) for char in word)
 
 def convert_full_string(input_string):
-    input_string = input_string.upper().replace('&', ' AND ')
+    """
+    입력된 문자열을 특정 형식으로 변환합니다.
+
+    Args:
+        input_string (str): 변환할 문자열
+
+    Returns:
+        str: 변환된 문자열
+    """
+    upper_string = input_string.upper().replace('&', ' AND ')
+    input_string = upper_string
     result = []
     words = re.findall(r'\b\w+\b|\S', input_string)
 
@@ -49,9 +78,18 @@ def convert_full_string(input_string):
         if i < len(words) - 1:
             result.append(' ')
 
-    return ''.join(result)
+    return ' '.join(result)
 
 def reverse_convert_full_string(input_string):
+    """
+    변환된 문자열을 원래 형식으로 되돌립니다.
+
+    Args:
+        input_string (str): 변환된 문자열
+
+    Returns:
+        str: 원래 형식으로 되돌린 문자열
+    """
     arr = []  # 반환된 숫자와 단어를 담을 리스트
     combined_number = ""  # 숫자를 결합할 변수
     is_runway_mode = False  # RUNWAY 모드인지 확인하는 플래그
@@ -116,6 +154,15 @@ def reverse_convert_full_string(input_string):
 reverse_pronunciation = {v.strip(): k for k, v in pronunciation.items()}
 
 def extract_callsign_and_act(text):
+    """
+    주어진 텍스트에서 콜사인과 행위를 추출합니다.
+
+    Args:
+        text (str): 분석할 텍스트
+
+    Returns:
+        tuple: 콜사인, 추출된 행위 리스트, 승인 여부, 활주로, 게이트
+    """
     callsign = ''
     extracted_acts = []
     approved = False
@@ -157,6 +204,15 @@ def extract_callsign_and_act(text):
 callsign_speaker_map = {}
 
 def get_speaker_for_callsign(callsign):
+    """
+    주어진 콜사인에 대한 화자 ID를 반환합니다.
+
+    Args:
+        callsign (str): 콜사인
+
+    Returns:
+        int: 화자 ID
+    """
     # 콜사인이 이미 매핑되어 있는지 확인
     if callsign in callsign_speaker_map:
         return callsign_speaker_map[callsign]

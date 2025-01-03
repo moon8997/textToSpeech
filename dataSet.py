@@ -3,8 +3,8 @@ import os
 from transformers import WhisperProcessor
 
 # 오디오 및 텍스트 파일이 저장된 경로 설정
-audio_dir = "dataset/audio"
-text_dir = "dataset/text"
+audio_dir = "dataset copy/audio"
+text_dir = "dataset copy/text"
 
 # Whisper Processor 로드
 # processor = WhisperProcessor.from_pretrained("openai/whisper-small")
@@ -58,4 +58,4 @@ print(f"Train dataset saved to {train_parquet_path}")
 print(f"Validation dataset saved to {validation_parquet_path}")
 
 # Hugging Face에 업로드 (예시)
-dataset_dict.push_to_hub("Dbdn/atcs")
+dataset_dict.push_to_hub("Dbdn/atc-tst")
