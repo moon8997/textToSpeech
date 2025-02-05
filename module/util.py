@@ -169,10 +169,10 @@ def extract_callsign_and_act(text):
     rwy = ''
     gate = ''
 
-    callsign_pattern = re.compile(r'\b(' + '|'.join(airline.keys()) + r')\d+\b')
+    callsign_pattern = re.compile(r'\b(' + '|'.join(airline.keys()) + r')\d*\b')
     callsign_match = callsign_pattern.search(text)
     if callsign_match:
-        callsign = callsign_match.group(0)
+        callsign = callsign_match.group(1)
     
     # acts를 정렬하여 더 긴 문구가 먼저 매치되도록 함
     sorted_acts = sorted(acts, key=len, reverse=True)

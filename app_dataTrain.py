@@ -15,8 +15,8 @@ import os
 import uuid
 import random
 
-UPLOAD_FOLDER_AUDIO = 'dataset/audio'
-UPLOAD_FOLDER_TEXT = 'dataset/text'
+UPLOAD_FOLDER_AUDIO = 'dataset2/audio'
+UPLOAD_FOLDER_TEXT = 'dataset2/text'
 os.makedirs(UPLOAD_FOLDER_AUDIO, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_TEXT, exist_ok=True)
 
@@ -44,12 +44,6 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # Load Whisper model
 # whisper_model = whisper.load_model('base')
 
-pipe = pipeline(
-    model='whisper_small_atco4/best_model',
-    task='automatic-speech-recognition',
-    device='cuda'  # GPU를 사용하지 않으려면 'cpu'로 변경
-)
-
 app = Flask(__name__)
 
 @app.route('/')
@@ -76,21 +70,14 @@ def generate_speech():
         text_prompt = request.data.decode("utf-8")
     elif 'INPUT_TEXT' in request.form:
         text_prompt = request.form.get('INPUT_TEXT')
-        
+
+    speaker_id = random.choice(male_speaker_ids)
     text_prompt = convert_full_string(text_prompt)
-    type = request.form.get('TYPE', '0')
-    random_speaker_id = random.choice(male_speaker_ids)
-
-    if type == '1':
-        wav = tts_male2.tts(text_prompt, speaker=random_speaker_id)
-    else:
-        wav = tts_male2.tts(text_prompt, speaker=random_speaker_id)
-
-    rate = int(request.form.get('INPUT_RATE', 48500))
+    wav = tts_male2.tts(text_prompt, speaker=speaker_id, speed=1.5)
 
     wav_array = np.array(wav)
     edited_wav_int16 = (wav_array * 32767).astype(np.int16)
-    
+    rate = 22050
     wav_file = io.BytesIO()
     wavfile.write(wav_file, rate, edited_wav_int16)
     wav_file.seek(0)
@@ -127,69 +114,6 @@ def remove_pushback_list_by_callsign(callsign: str):
     global wait_pushback_lists
     wait_pushback_lists = [pb_list for pb_list in wait_pushback_lists if pb_list.callsign != callsign]
     print("푸시백 시작")
-
-@app.route('/generate_txt', methods=['POST'])
-def generate_txt():
-    try:
-        wav_file = request.files['wav']
-        temp_path = "temp.wav"
-        wav_file.save(temp_path)
-
-        result = pipe(temp_path)['text']
-        
-        # org_result = whisper_model.transcribe(temp_path, language="en")['text']
-
-        # print(result)
-        # print(f"기존 Whisper : {org_result}")
-        print(f"파인튜닝 후 Whisper : {result}")
-
-        original_text = result.upper().replace('-', '').replace(',', '')
-
-        converted_text = reverse_convert_full_string(original_text)
-
-        callsign, act = extract_callsign_and_act(converted_text)
-
-
-        if act.replace(' ', '') == 'PUSHBACK' and callsign:
-
-            pushBack: Optional[PushBackList] = next((pb_list for pb_list in wait_pushback_lists if pb_list.callsign == callsign), None)
-            print(original_text)
-            if pushBack:
-                pushback_texts = [pushback.text for pushback in pushBack.pushbacks]
-                print(f"{pushBack.pushbacks[0].gate} 번 게이트의 푸시백은 {pushback_texts}.")
-                
-                
-                if any(text in original_text.replace(' ', '') for text in pushback_texts):
-                    remove_pushback_list_by_callsign(callsign)
-                else:
-                    return jsonify({
-                        'converted_text': converted_text,
-                        'callsign': callsign,
-                        'act': act,
-                        'url': url_for('static', filename='voice/invalid-pushback.mp3')
-                    })
-            else:
-                return jsonify({
-                    'converted_text': converted_text,
-                    'callsign': callsign,
-                    'act': act,
-                    'url': url_for('static', filename='voice/invalid-callsign.mp3')
-                })
-        return jsonify({
-            'converted_text': converted_text,
-            'callsign': callsign,
-            'act': act,
-            'url': ""
-        })
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        return jsonify({
-            'converted_text': "오류",
-            'callsign': "",
-            'act': "",
-            'url': ""
-        })
-    
 
 
 # 푸시백 요청 대기

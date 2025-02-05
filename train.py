@@ -22,8 +22,8 @@ os.environ["HF_DATASETS_CACHE"] = "F:/huggingface_cache/datasets"  # 데이터�
 torch.cuda.memory.set_per_process_memory_fraction(0.9)
 torch.cuda.memory.max_split_size_mb = 512
 
-model_id = "whisper_test/best_model"
-out_dir = 'whisper_test2'
+model_id = "whisper_test2/best_model"
+out_dir = 'whisper_test3'
 epochs = 10
 batch_size = 2
 # 10 / 32
@@ -79,15 +79,15 @@ def compute_metrics(pred):
 
 if __name__ == "__main__":
     # Parquet 파일에서 데이터셋 로드
-    # dataset = load_dataset("parquet", data_files={"train": "train_dataset/train.parquet", "validation": "train_dataset/validation.parquet"}, cache_dir='D:\\huggingface\\datasets')
+    dataset = load_dataset("parquet", data_files={"train": "dataset2/dataset/train.parquet", "validation": "dataset2/dataset/validation.parquet"})
 
     # 각 데이터셋을 별도로 추출
-    # train_dataset = dataset["train"]
-    # validation_dataset = dataset["validation"]
+    train_dataset = dataset["train"]
+    validation_dataset = dataset["validation"]
 
     # # 데이터셋 정보 출력
-    # print(train_dataset)
-    # print(validation_dataset)
+    print(train_dataset)
+    print(validation_dataset)
     print("1")
     # Feature Extractor, Tokenizer, Processor 로드
     feature_extractor = WhisperFeatureExtractor.from_pretrained(model_id)
@@ -96,15 +96,15 @@ if __name__ == "__main__":
 
     print("2")
     # ATC 데이터셋 로드
-    atc_dataset_train = load_dataset('Dbdn/atcs', split='train')
-    atc_dataset_valid = load_dataset('Dbdn/atcs', split='validation')
+    # atc_dataset_train = load_dataset('Dbdn/atcs', split='train')
+    # atc_dataset_valid = load_dataset('Dbdn/atcs', split='validation')
 
     # print(atc_dataset_train)
     # print(atc_dataset_valid)
 
     # 오디오 데이터를 Audio 형식으로 캐스트
-    # atc_dataset_train = train_dataset.cast_column('audio', Audio(sampling_rate=16000))
-    # atc_dataset_valid = validation_dataset.cast_column('audio', Audio(sampling_rate=16000))
+    atc_dataset_train = train_dataset.cast_column('audio', Audio(sampling_rate=16000))
+    atc_dataset_valid = validation_dataset.cast_column('audio', Audio(sampling_rate=16000))
 
     # print(atc_dataset_train[0])
 
